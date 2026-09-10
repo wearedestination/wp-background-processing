@@ -676,4 +676,73 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 		unset( $this->wpbp->cron_interval );
 		$this->assertEquals( 5, $this->wpbp->get_cron_interval() );
 	}
+
+	/**
+	 * Test maybe_wp_die on the command line.
+	 *
+	 * Reaching the assertions is the test: wp_die() would take the test runner
+	 * with it.
+	 *
+	 * @return void
+	 */
+	public function test_maybe_wp_die_on_cli() {
+		$this->assertEquals( 'cli', PHP_SAPI, 'tests run on the command line' );
+
+		$this->assertEquals( 'wibble', $this->executeWPBPMethod( 'maybe_wp_die', 'wibble' ), 'returns rather than dies' );
+
+		// The filter still decides, it just defaults to false with no request to end.
+		$passed    = null;
+		$callback  = function ( $should_die ) use ( &$passed ) {
+			$passed = $should_die;
+
+			return false;
+		};
+		$hook_name = $this->getWPBPProperty( 'identifier' ) . '_wp_die';
+
+		add_filter( $hook_name, $callback );
+		$this->executeWPBPMethod( 'maybe_wp_die' );
+		remove_filter( $hook_name, $callback );
+
+		$this->assertFalse( $passed, 'filtered with a default of false' );
+	}
+
+	/**
+	 * Test handle_cron_healthcheck with an empty queue.
+	 *
+	 * Reaching the assertions is the test: an exit would take the test runner
+	 * with it, as it takes the rest of a cron run.
+	 *
+	 * @return void
+	 */
+	public function test_handle_cron_healthcheck_empty_queue() {
+		$cron_hook = $this->getWPBPProperty( 'cron_hook_identifier' );
+
+		$this->executeWPBPMethod( 'schedule_event' );
+		$this->assertNotFalse( wp_next_scheduled( $cron_hook ), 'healthcheck scheduled' );
+
+		$this->assertFalse( $this->wpbp->is_queued(), 'nothing to process' );
+		$this->wpbp->handle_cron_healthcheck();
+
+		$this->assertFalse( wp_next_scheduled( $cron_hook ), 'healthcheck cleared with nothing left to do' );
+	}
+
+	/**
+	 * Test handle_cron_healthcheck while another instance is processing.
+	 *
+	 * @return void
+	 */
+	public function test_handle_cron_healthcheck_already_processing() {
+		$cron_hook = $this->getWPBPProperty( 'cron_hook_identifier' );
+
+		$this->wpbp->push_to_queue( 'wibble' );
+		$this->wpbp->save();
+		$this->executeWPBPMethod( 'schedule_event' );
+		$this->executeWPBPMethod( 'lock_process' );
+
+		$this->wpbp->handle_cron_healthcheck();
+
+		$this->assertTrue( $this->wpbp->is_processing(), 'left the running instance alone' );
+		$this->assertNotFalse( wp_next_scheduled( $cron_hook ), 'healthcheck still scheduled' );
+		$this->assertCount( 1, $this->wpbp->get_batches(), 'batch untouched' );
+	}
 }
