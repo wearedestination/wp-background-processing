@@ -48,7 +48,10 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 		} catch ( Exception $e ) {
 			return new WP_Error( $e->getCode(), $e->getMessage() );
 		}
-		$property->setAccessible( true );
+		// Deprecated and unnecessary from PHP 8.1, and isolated tests fail on the notice.
+		if ( PHP_VERSION_ID < 80100 ) {
+			$property->setAccessible( true );
+		}
 
 		return $property->getValue( $this->wpbp );
 	}
@@ -67,7 +70,10 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 		} catch ( Exception $e ) {
 			return new WP_Error( $e->getCode(), $e->getMessage() );
 		}
-		$property->setAccessible( true );
+		// Deprecated and unnecessary from PHP 8.1, and isolated tests fail on the notice.
+		if ( PHP_VERSION_ID < 80100 ) {
+			$property->setAccessible( true );
+		}
 
 		return $property->setValue( $this->wpbp, $value );
 	}
@@ -83,7 +89,11 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 	private function executeWPBPMethod( string $name, ...$args ) {
 		try {
 			$method = new ReflectionMethod( 'WP_Background_Process', $name );
-			$method->setAccessible( true );
+
+			// Deprecated and unnecessary from PHP 8.1, and isolated tests fail on the notice.
+			if ( PHP_VERSION_ID < 80100 ) {
+				$method->setAccessible( true );
+			}
 
 			return $method->invoke( $this->wpbp, ...$args );
 		} catch ( Exception $e ) {
@@ -681,7 +691,10 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 	 * Test maybe_wp_die on the command line.
 	 *
 	 * Reaching the assertions is the test: wp_die() would take the test runner
-	 * with it.
+	 * with it, so the test is isolated to report that as a failure.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 *
 	 * @return void
 	 */
@@ -710,7 +723,11 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 	 * Test handle_cron_healthcheck with an empty queue.
 	 *
 	 * Reaching the assertions is the test: an exit would take the test runner
-	 * with it, as it takes the rest of a cron run.
+	 * with it, as it takes the rest of a cron run, so the test is isolated to
+	 * report that as a failure.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 *
 	 * @return void
 	 */
@@ -728,6 +745,9 @@ class Test_WP_Background_Process extends WP_UnitTestCase {
 
 	/**
 	 * Test handle_cron_healthcheck while another instance is processing.
+	 *
+	 * @runInSeparateProcess
+	 * @preserveGlobalState disabled
 	 *
 	 * @return void
 	 */
